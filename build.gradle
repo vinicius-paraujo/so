@@ -1,0 +1,73 @@
+plugins {
+    id 'application'
+}
+
+group = 'br.ufc.so'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.12.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+application {
+    applicationName = 'simulador-alocacao'
+    mainClass = 'br.ufc.so.alocacao.cli.Principal'
+}
+
+// A CLI lê comandos digitados; sem isso, o Gradle não repassa o teclado ao programa.
+tasks.named('run') {
+    standardInput = System.in
+}
+
+// Simulação visual: ponto de entrada próprio, executado por ./gradlew runVisual
+def mainVisual = 'br.ufc.so.alocacao.visual.PrincipalVisual'
+
+tasks.register('runVisual', JavaExec) {
+    group = 'application'
+    description = 'Executa a simulação visual passo a passo.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = mainVisual
+}
+
+def scriptsVisual = tasks.register('scriptsVisual', CreateStartScripts) {
+    applicationName = 'simulador-alocacao-visual'
+    mainClass = mainVisual
+    outputDir = layout.buildDirectory.dir('scripts-visual').get().asFile
+    classpath = files(tasks.named('jar')) + configurations.runtimeClasspath
+}
+
+distributions {
+    main {
+        contents {
+            from(scriptsVisual) {
+                into 'bin'
+            }
+        }
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    // A suíte começa vazia; os testes dos oráculos são adicionados antes de cada algoritmo
+    failOnNoDiscoveredTests = false
+    // Os testes da interface desenham em memória, sem abrir janelas.
+    systemProperty 'java.awt.headless', 'true'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+    options.compilerArgs.addAll(['-Xlint:all', '-Werror'])
+}
